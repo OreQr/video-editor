@@ -20,7 +20,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "video editor",
         native_options,
-        Box::new(|cc| Ok(Box::new(video_editor::TemplateApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(video_editor::App::new(cc)))),
     )
 }
 
@@ -50,7 +50,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(video_editor::TemplateApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(video_editor::App::new(cc)))),
             )
             .await;
 
