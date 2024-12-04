@@ -2,19 +2,23 @@
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
-    // Example stuff:
-    label: String,
+    tree: egui_tiles::Tree<Pane>,
 
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+    #[serde(skip)]
+    behavior: TreeBehavior,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let tree = create_tree();
+
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            tree,
+            behavior: TreeBehavior {
+                files: Files {},
+                timeline: Timeline {},
+                video: Video {},
+            },
         }
     }
 }
@@ -50,47 +54,46 @@ impl eframe::App for App {
             // The top panel is often a good place for a menu bar:
 
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
                 let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
+                ui.menu_button("File", |ui| {
+                    if !is_web {
                         if ui.button("Quit").clicked() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
+                    }
+                });
+                ui.menu_button("Window", |ui| {
+                    ui.menu_button("Theme", |ui| {
+                        egui::widgets::global_theme_preference_buttons(ui);
                     });
-                    ui.add_space(16.0);
-                }
-
-                egui::widgets::global_theme_preference_buttons(ui);
+                    if ui.button("Reset window layout").clicked() {
+                        self.tree = create_tree();
+                        ui.close_menu();
+                    }
+                });
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("video editor");
-
+        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
-
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/main/",
-                "Source code."
-            ));
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
+                if !cfg!(debug_assertions) {
+                    ui.label(format!("v{}", env!("CARGO_PKG_VERSION")));
+                }
+                ui.separator();
+                powered_by_egui_and_eframe(ui);
             });
         });
+
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::default()
+                    .inner_margin(0.0)
+                    .fill(ctx.style().visuals.window_fill()),
+            )
+            .show(ctx, |ui| {
+                self.tree.ui(&mut self.behavior, ui);
+            });
     }
 }
 
@@ -106,4 +109,92 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         );
         ui.label(".");
     });
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+enum Pane {
+    Files,
+    Timeline,
+    Video,
+}
+
+struct TreeBehavior {
+    files: Files,
+    timeline: Timeline,
+    video: Video,
+}
+
+impl egui_tiles::Behavior<Pane> for TreeBehavior {
+    fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
+        match pane {
+            Pane::Files => "Files",
+            Pane::Timeline => "Timeline",
+            Pane::Video => "Video",
+        }
+        .into()
+    }
+
+    fn pane_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        _tile_id: egui_tiles::TileId,
+        pane: &mut Pane,
+    ) -> egui_tiles::UiResponse {
+        match pane {
+            Pane::Files => self.files.ui(ui),
+            Pane::Timeline => self.timeline.ui(ui),
+            Pane::Video => self.video.ui(ui),
+        };
+
+        Default::default()
+    }
+}
+
+fn create_tree() -> egui_tiles::Tree<Pane> {
+    let mut tiles = egui_tiles::Tiles::default();
+
+    let files = tiles.insert_pane(Pane::Files);
+    let timeline = tiles.insert_pane(Pane::Timeline);
+    let video = tiles.insert_pane(Pane::Video);
+
+    let mut inner_top = egui_tiles::Linear {
+        children: vec![files, video],
+        dir: egui_tiles::LinearDir::Horizontal,
+        ..Default::default()
+    };
+    inner_top.shares.set_share(files, 0.5);
+
+    let top = tiles.insert_container(egui_tiles::Container::Linear(inner_top));
+
+    let mut inner = egui_tiles::Linear {
+        children: vec![top, timeline],
+        dir: egui_tiles::LinearDir::Vertical,
+        ..Default::default()
+    };
+    inner.shares.set_share(timeline, 0.3);
+
+    let root = tiles.insert_container(egui_tiles::Container::Linear(inner));
+
+    egui_tiles::Tree::new("tree", root, tiles)
+}
+
+struct Files {}
+impl Files {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.label("Files");
+    }
+}
+
+struct Timeline {}
+impl Timeline {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.label("Timeline");
+    }
+}
+
+struct Video {}
+impl Video {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.label("Video");
+    }
 }
