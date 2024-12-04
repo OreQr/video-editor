@@ -148,6 +148,13 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
 
         Default::default()
     }
+
+    fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
+        egui_tiles::SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        }
+    }
 }
 
 fn create_tree() -> egui_tiles::Tree<Pane> {
