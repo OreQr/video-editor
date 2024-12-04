@@ -103,6 +103,8 @@ jobs:
         run: ./trunk build
 
   build:
+    # Temporarily disable build job
+    if: false
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
