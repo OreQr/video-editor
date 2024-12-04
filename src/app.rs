@@ -1,3 +1,5 @@
+use crate::panes::{Files, Timeline, Video};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -174,25 +176,4 @@ fn create_tree() -> egui_tiles::Tree<Pane> {
     let root = tiles.insert_container(egui_tiles::Container::Linear(inner));
 
     egui_tiles::Tree::new("tree", root, tiles)
-}
-
-struct Files {}
-impl Files {
-    fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.label("Files");
-    }
-}
-
-struct Timeline {}
-impl Timeline {
-    fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.label("Timeline");
-    }
-}
-
-struct Video {}
-impl Video {
-    fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.label("Video");
-    }
 }
