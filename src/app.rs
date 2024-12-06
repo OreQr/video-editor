@@ -17,7 +17,7 @@ impl Default for App {
         Self {
             tree,
             behavior: TreeBehavior {
-                files: Files {},
+                files: Files::default(),
                 timeline: Timeline {},
                 video: Video {},
             },
@@ -58,6 +58,17 @@ impl eframe::App for App {
             egui::menu::bar(ui, |ui| {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
+                    if ui
+                        .add(
+                            egui::Button::new("Import file").shortcut_text(
+                                ui.ctx().format_shortcut(&Files::IMPORT_FILE_SHORTCUT),
+                            ),
+                        )
+                        .clicked()
+                    {
+                        Files::import_file(&mut self.behavior.files, ui);
+                        ui.close_menu();
+                    };
                     if !is_web && ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
