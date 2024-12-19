@@ -75,13 +75,15 @@ impl Files {
         let sender = self.text_channel.0.clone();
         let ctx = ui.ctx().clone();
         async_std::task::block_on(async move {
-            if let Some(file) = rfd::AsyncFileDialog::new().pick_file().await {
-                let file_name = file.file_name();
-                let _ = sender.send(File {
-                    file_name,
-                    bytes: file.read().await,
-                });
-                ctx.request_repaint();
+            if let Some(files) = rfd::AsyncFileDialog::new().pick_files().await {
+                for file in files {
+                    let file_name = file.file_name();
+                    let _ = sender.send(File {
+                        file_name,
+                        bytes: file.read().await,
+                    });
+                    ctx.request_repaint();
+                }
             }
         });
     }
