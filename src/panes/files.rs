@@ -3,11 +3,12 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 
 struct File {
     file_name: String,
+    bytes: Vec<u8>,
 }
 
 pub struct Files {
     files: Vec<File>,
-    text_channel: (Sender<String>, Receiver<String>),
+    text_channel: (Sender<File>, Receiver<File>),
 }
 impl Files {
     pub fn default() -> Self {
@@ -21,8 +22,8 @@ impl Files {
         egui::KeyboardShortcut::new(Modifiers::CTRL, egui::Key::O);
 
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        if let Ok(text) = self.text_channel.1.try_recv() {
-            self.files.push(File { file_name: text });
+        if let Ok(file) = self.text_channel.1.try_recv() {
+            self.files.push(file);
         }
 
         ui.ctx().input(|i| {
@@ -39,7 +40,12 @@ impl Files {
                         "???".to_owned()
                     };
 
-                    self.files.push(File { file_name });
+                    if let Some(bytes) = &file.bytes {
+                        self.files.push(File {
+                            file_name,
+                            bytes: bytes.clone().to_vec(),
+                        });
+                    }
                 }
             }
         });
@@ -53,7 +59,11 @@ impl Files {
         };
 
         for file in &self.files {
-            ui.label(format!("File: {}", file.file_name));
+            ui.label(format!(
+                "File: {}, bytes: {}",
+                file.file_name,
+                file.bytes.len()
+            ));
         }
     }
 
@@ -63,7 +73,10 @@ impl Files {
         async_std::task::block_on(async move {
             if let Some(file) = rfd::AsyncFileDialog::new().pick_file().await {
                 let file_name = file.file_name();
-                let _ = sender.send(file_name);
+                let _ = sender.send(File {
+                    file_name,
+                    bytes: file.read().await,
+                });
                 ctx.request_repaint();
             }
         });
