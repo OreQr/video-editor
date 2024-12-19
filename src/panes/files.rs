@@ -5,19 +5,19 @@ use std::{
 };
 
 struct File {
-    file_name: String,
+    name: String,
     bytes: Vec<u8>,
 }
 
 pub struct Files {
     files: Vec<File>,
-    text_channel: (Sender<File>, Receiver<File>),
+    channel: (Sender<File>, Receiver<File>),
 }
 impl Files {
     pub fn default() -> Self {
         Self {
             files: Vec::new(),
-            text_channel: channel(),
+            channel: channel(),
         }
     }
 
@@ -25,7 +25,7 @@ impl Files {
         egui::KeyboardShortcut::new(Modifiers::CTRL, egui::Key::O);
 
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        if let Ok(file) = self.text_channel.1.try_recv() {
+        if let Ok(file) = self.channel.1.try_recv() {
             self.files.push(file);
         }
 
@@ -33,7 +33,7 @@ impl Files {
             if !i.raw.dropped_files.is_empty() {
                 let dropped_files = &i.raw.dropped_files;
                 for file in dropped_files {
-                    let file_name = if let Some(path) = &file.path {
+                    let name = if let Some(path) = &file.path {
                         path.file_name()
                             .map(|name| name.to_string_lossy().to_string())
                             .unwrap_or_else(|| "???".to_owned())
@@ -49,7 +49,7 @@ impl Files {
                         file.bytes.clone().unwrap_or_else(|| [].into()).to_vec()
                     };
 
-                    self.files.push(File { file_name, bytes });
+                    self.files.push(File { name, bytes });
                 }
             }
         });
@@ -63,23 +63,19 @@ impl Files {
         };
 
         for file in &self.files {
-            ui.label(format!(
-                "File: {}, bytes: {}",
-                file.file_name,
-                file.bytes.len()
-            ));
+            ui.label(format!("File: {}, bytes: {}", file.name, file.bytes.len()));
         }
     }
 
     pub fn import_file(&mut self, ui: &mut egui::Ui) {
-        let sender = self.text_channel.0.clone();
+        let sender = self.channel.0.clone();
         let ctx = ui.ctx().clone();
         async_std::task::block_on(async move {
             if let Some(files) = rfd::AsyncFileDialog::new().pick_files().await {
                 for file in files {
-                    let file_name = file.file_name();
+                    let name = file.file_name();
                     let _ = sender.send(File {
-                        file_name,
+                        name,
                         bytes: file.read().await,
                     });
                     ctx.request_repaint();
