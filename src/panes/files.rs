@@ -1,5 +1,8 @@
 use egui::Modifiers;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::{
+    fs,
+    sync::mpsc::{channel, Receiver, Sender},
+};
 
 struct File {
     file_name: String,
@@ -40,12 +43,13 @@ impl Files {
                         "???".to_owned()
                     };
 
-                    if let Some(bytes) = &file.bytes {
-                        self.files.push(File {
-                            file_name,
-                            bytes: bytes.clone().to_vec(),
-                        });
-                    }
+                    let bytes = if let Some(path) = &file.path {
+                        fs::read(path).unwrap_or_else(|_| Vec::new())
+                    } else {
+                        file.bytes.clone().unwrap_or_else(|| [].into()).to_vec()
+                    };
+
+                    self.files.push(File { file_name, bytes });
                 }
             }
         });
