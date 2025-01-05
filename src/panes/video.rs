@@ -1,6 +1,8 @@
+use super::PaneBehavior;
+
 pub struct Video {}
-impl Video {
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+impl PaneBehavior for Video {
+    fn ui(&mut self, ui: &mut egui::Ui) {
         ui.label("Video");
     }
 }

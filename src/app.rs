@@ -1,7 +1,9 @@
-use crate::panes::{Files, Timeline, Video};
+use serde::{Deserialize, Serialize};
+
+use crate::panes::{Files, PaneBehavior as _, Timeline, Video};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
     tree: egui_tiles::Tree<Pane>,
@@ -49,12 +51,7 @@ impl eframe::App for App {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-
             egui::menu::bar(ui, |ui| {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
@@ -66,7 +63,7 @@ impl eframe::App for App {
                         )
                         .clicked()
                     {
-                        Files::import_file(&mut self.behavior.files, ui);
+                        Files::import_file_dialog(&mut self.behavior.files);
                         ui.close_menu();
                     };
                     if !is_web && ui.button("Quit").clicked() {
@@ -99,7 +96,7 @@ impl eframe::App for App {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::default()
-                    .inner_margin(0.0)
+                    .inner_margin(0.)
                     .fill(ctx.style().visuals.window_fill()),
             )
             .show(ctx, |ui| {
@@ -110,7 +107,7 @@ impl eframe::App for App {
 
 fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
+        ui.spacing_mut().item_spacing.x = 0.;
         ui.label("Powered by ");
         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
         ui.label(" and ");
@@ -122,7 +119,7 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     });
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 enum Pane {
     Files,
     Timeline,
@@ -158,6 +155,23 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         };
 
         Default::default()
+    }
+
+    fn top_bar_right_ui(
+        &mut self,
+        _tiles: &egui_tiles::Tiles<Pane>,
+        ui: &mut egui::Ui,
+        tile_id: egui_tiles::TileId,
+        _tabs: &egui_tiles::Tabs,
+        _scroll_offset: &mut f32,
+    ) {
+        ui.add_space(6.);
+        match tile_id.0 {
+            1 => self.files.top_bar_ui(ui),
+            2 => self.timeline.top_bar_ui(ui),
+            3 => self.video.top_bar_ui(ui),
+            _ => {}
+        }
     }
 
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
