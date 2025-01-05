@@ -1,4 +1,5 @@
 mod filters;
+mod handle_file;
 
 use egui_taffy::{
     taffy::{
@@ -8,7 +9,7 @@ use egui_taffy::{
     },
     tui, TuiBuilderLogic,
 };
-use filters::{Filters, IMAGE_FILTER, SOUND_FILTER, VIDEO_FILTER};
+use filters::{IMAGE_FILTER, SOUND_FILTER, VIDEO_FILTER};
 use std::fs;
 
 use super::PaneBehavior;
@@ -19,16 +20,18 @@ pub enum FileType {
     Video,
     Sound,
 }
+
+pub struct FileData {
+    name: String,
+    bytes: Vec<u8>,
+    mime: Option<String>,
+}
+
 struct File {
     name: String,
     bytes: Vec<u8>,
     r#type: FileType,
-}
-
-struct FileData {
-    name: String,
-    bytes: Vec<u8>,
-    mime: Option<String>,
+    video_thumbnail: Option<Vec<u8>>,
 }
 
 pub struct Files {
@@ -113,15 +116,6 @@ impl Files {
             self.import_file_dialog();
         }
     }
-
-    fn handle_file(&mut self, file_data: FileData) {
-        let file_type = Filters::determinate_type(&file_data);
-
-        match file_type {
-            Some(file_type) => println!("File: {}, type: {:?}", file_data.name, file_type),
-            None => println!("File type not found: {}", file_data.name),
-        }
-    }
 }
 
 impl PaneBehavior for Files {
@@ -179,20 +173,31 @@ impl PaneBehavior for Files {
 
                             tui.ui(|ui| {
                                 // Thumbnail
-                                match file.r#type {
-                                    FileType::Image => {
-                                        ui.add_sized(
-                                            [(x - 16.), 100.],
-                                            egui::Image::from_bytes(
-                                                format!("bytes://{}", file.name),
-                                                file.bytes.clone(),
-                                            )
-                                            .maintain_aspect_ratio(true),
-                                        );
+                                ui.add_sized(
+                                    [(x - 16.), 100.],
+                                    match file.r#type {
+                                        FileType::Image => egui::Image::from_bytes(
+                                            format!("bytes://{}", file.name),
+                                            file.bytes.clone(),
+                                        ),
+                                        FileType::Video => {
+                                            if let Some(video_thumbnail) = &file.video_thumbnail {
+                                                egui::Image::from_bytes(
+                                                    format!("bytes://{}", file.name),
+                                                    video_thumbnail.clone(),
+                                                )
+                                            } else {
+                                                egui::Image::new(egui::include_image!(
+                                                    "../../assets/video.png"
+                                                ))
+                                            }
+                                        }
+                                        FileType::Sound => egui::Image::new(egui::include_image!(
+                                            "../../assets/sound.png"
+                                        )),
                                     }
-                                    FileType::Video => {}
-                                    FileType::Sound => {}
-                                }
+                                    .maintain_aspect_ratio(true),
+                                );
 
                                 ui.add_sized(
                                     [(x - 16.), 10.],
