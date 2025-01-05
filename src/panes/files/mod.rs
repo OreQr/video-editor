@@ -10,7 +10,10 @@ use egui_taffy::{
     tui, TuiBuilderLogic,
 };
 use filters::{IMAGE_FILTER, SOUND_FILTER, VIDEO_FILTER};
-use std::fs;
+use std::{
+    fs,
+    sync::mpsc::{channel, Receiver, Sender},
+};
 
 use super::PaneBehavior;
 
@@ -36,16 +39,22 @@ struct File {
 
 pub struct Files {
     files: Vec<File>,
+    channel: (Sender<FileData>, Receiver<FileData>),
 }
 impl Files {
     pub fn default() -> Self {
-        Self { files: Vec::new() }
+        Self {
+            files: Vec::new(),
+            channel: channel(),
+        }
     }
 
     pub const IMPORT_FILE_SHORTCUT: egui::KeyboardShortcut =
         egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O);
 
-    pub fn import_file_dialog(&mut self) {
+    pub fn import_file_dialog(&mut self, ui: &mut egui::Ui) {
+        let sender = self.channel.0.clone();
+        let ctx = ui.ctx().clone();
         async_std::task::block_on(async move {
             if let Some(files) = rfd::AsyncFileDialog::new()
                 .add_filter(
@@ -65,17 +74,23 @@ impl Files {
                         continue;
                     }
 
-                    self.handle_file(FileData {
+                    // Send file data by channel because of wasm compilation: E0521
+                    let _ = sender.send(FileData {
                         name,
                         bytes,
                         mime: None,
                     });
+                    ctx.request_repaint();
                 }
             }
         });
     }
 
     fn import_ui(&mut self, ui: &mut egui::Ui) {
+        if let Ok(file_data) = self.channel.1.try_recv() {
+            self.handle_file(file_data);
+        }
+
         ui.ctx().input(|i| {
             if !i.raw.dropped_files.is_empty() {
                 let dropped_files = &i.raw.dropped_files;
@@ -113,7 +128,7 @@ impl Files {
         });
 
         if ui.input_mut(|i| i.consume_shortcut(&Self::IMPORT_FILE_SHORTCUT)) {
-            self.import_file_dialog();
+            self.import_file_dialog(ui);
         }
     }
 }
@@ -212,7 +227,7 @@ impl PaneBehavior for Files {
 
     fn top_bar_ui(&mut self, ui: &mut egui::Ui) {
         if ui.button("Import file").clicked() {
-            self.import_file_dialog();
+            self.import_file_dialog(ui);
         };
     }
 }

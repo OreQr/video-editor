@@ -14,7 +14,7 @@ impl App {
                         )
                         .clicked()
                     {
-                        Files::import_file_dialog(&mut self.behavior.files);
+                        Files::import_file_dialog(&mut self.behavior.files, ui);
                         ui.close_menu();
                     };
                     if !is_web && ui.button("Quit").clicked() {
